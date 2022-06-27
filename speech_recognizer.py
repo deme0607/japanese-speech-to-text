@@ -3,7 +3,7 @@
 """
 Usage:
     speech_recognizer.py azure --azure-speech-key=<azure_speech_key> [--azure-service-region=<azure_service_region>] [--phrases-file=<phrases_file>] <wave_filename>
-    speech_recognizer.py gcp <wave_filename>
+    speech_recognizer.py gcp <gcs_uri>
 
 Options:
     -h --help    show this
@@ -12,12 +12,15 @@ Options:
     --azureserviceregion=<azure_service_region>  Azure service region [default: westus]
 """
 
+from datetime import timedelta
 from docopt import docopt
 import time
 import re
 from scipy.io import wavfile
 import azure.cognitiveservices.speech as speechsdk
 from typing import List
+from google.cloud import speech as gcpspeech
+from google.api_core import operation as gcpoperation
 
 WAVE_CHANNELS = 2
 WAVE_BPS = 16
@@ -27,9 +30,12 @@ LANGUAGE_CODE_JAPANESE = "ja-JP"
 
 CSV_HEADER = "start_ms,end_ms,start_tc,end_tc,is_estimated_start,is_estimated_end,display_text"
 
-TIME_ONE_SECOND = 1000
+TIME_ONE_MICROSECOND_DIVISOR = 1000
+TIME_ONE_MILLISECOND = 1
+TIME_ONE_SECOND = TIME_ONE_MILLISECOND * 1000
 TIME_ONE_MINUTE = TIME_ONE_SECOND * 60
 TIME_ONE_HOUR = TIME_ONE_MINUTE * 60
+TIME_ONE_DAY = TIME_ONE_HOUR * 24
 
 
 def convert_to_timecode(source_ms: int) -> str:
@@ -132,6 +138,58 @@ class AzureRecognizer:
                 sentence_start += sentence_duration_esimation + self.AZURE_SEGMENT_BREAK_MS
 
 
+class GCPRecognizer:
+    GCP_TIMEOUT_SEC = 900
+
+    def __init__(self) -> None:
+        self.client = gcpspeech.SpeechClient()
+        self.results = None
+
+    def start_recognition(self, gcs_uri: str):
+        audio = gcpspeech.RecognitionAudio(uri=gcs_uri)
+        config = gcpspeech.RecognitionConfig(
+            encoding=gcpspeech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=WAVE_SPS,
+            audio_channel_count=WAVE_CHANNELS,
+            language_code=LANGUAGE_CODE_JAPANESE,
+            enable_automatic_punctuation=True,
+            model="latest_long",
+            enable_word_time_offsets=True,
+        )
+
+        operation = self.client.long_running_recognize(config=config, audio=audio)
+        self.results = operation.result(timeout=self.GCP_TIMEOUT_SEC).results
+
+    def print_result_csv(self):
+        if not self.results:
+            return
+
+        for result in self.results:
+            sentences = result.alternatives[0].transcript.split()
+            words = list(map(lambda w: (w.word.replace('▁', ''), w.start_time, w.end_time), result.alternatives[0].words))
+
+            if len(words) == 0:
+                continue
+
+            word_i = 0
+            for sentence in sentences:
+                start_word = words[word_i]
+                count = 0
+
+                while word_i < len(words) and count + len(words[word_i][0]) < len(sentence):
+                    count += len(words[word_i][0])
+                    word_i += 1
+
+                start_time: timedelta = start_word[1]
+                end_time: timedelta = words[word_i][2]
+                start_time_ms = start_time.days * TIME_ONE_DAY + start_time.seconds * TIME_ONE_SECOND + start_time.microseconds // TIME_ONE_MICROSECOND_DIVISOR
+                end_time_ms = end_time.days * TIME_ONE_DAY + end_time.seconds * TIME_ONE_SECOND + end_time.microseconds // TIME_ONE_MICROSECOND_DIVISOR
+
+                print_csv_line(start_time_ms, end_time_ms, True, True, sentence)
+
+                word_i += 1
+
+
 if __name__ == '__main__':
     arguments = docopt(__doc__)
     phrases: List[str] = list()
@@ -155,4 +213,8 @@ if __name__ == '__main__':
         while not recognizer.done:
             time.sleep(1)
 
+        recognizer.print_result_csv()
+    elif arguments["gcp"]:
+        recognizer = GCPRecognizer()
+        recognizer.start_recognition(arguments["<gcs_uri>"])
         recognizer.print_result_csv()
