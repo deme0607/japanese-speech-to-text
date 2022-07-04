@@ -173,7 +173,7 @@ class GCPRecognizer:
         print(CSV_HEADER)
 
         for result in self.results:
-            sentences = result.alternatives[0].transcript.split()
+            sentences = list(filter(lambda x: len(x) > 0, re.split("。|？| ", result.alternatives[0].transcript)))
             words = list(map(lambda w: (w.word.replace('▁', ''), w.start_time, w.end_time), result.alternatives[0].words))
 
             if len(words) == 0:
