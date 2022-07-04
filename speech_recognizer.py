@@ -59,7 +59,13 @@ class AzureRecognizer:
 
     def __init__(self, speech_key: str, service_region: str) -> None:
         speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
-        speech_config.enable_dictation()
+
+        # When you're using continuous recognition, you can enable dictation processing by using
+        # the corresponding function. This mode will cause the speech configuration instance to
+        # interpret word descriptions of sentence structures such as punctuation.
+        # For example, the utterance "Do you live in town question mark" would be interpreted as
+        # the text "Do you live in town?".
+        # speech_config.enable_dictation()
 
         wave_format = speechsdk.audio.AudioStreamFormat(WAVE_SPS, WAVE_BPS, WAVE_CHANNELS)
         self.stream = speechsdk.audio.PushAudioInputStream(stream_format=wave_format)
