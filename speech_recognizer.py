@@ -225,6 +225,7 @@ if __name__ == '__main__':
         while not recognizer.done:
             time.sleep(1)
 
+        recognizer.stop_recognition()
         recognizer.print_result_csv()
     elif arguments["gcp"]:
         recognizer = GCPRecognizer()
