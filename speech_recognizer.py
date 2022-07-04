@@ -170,6 +170,8 @@ class GCPRecognizer:
         if not self.results:
             return
 
+        print(CSV_HEADER)
+
         for result in self.results:
             sentences = result.alternatives[0].transcript.split()
             words = list(map(lambda w: (w.word.replace('▁', ''), w.start_time, w.end_time), result.alternatives[0].words))
