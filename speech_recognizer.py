@@ -43,7 +43,7 @@ def convert_to_timecode(source_ms: int) -> str:
     m = (source_ms % TIME_ONE_HOUR) // TIME_ONE_MINUTE
     s = (source_ms % TIME_ONE_MINUTE) // TIME_ONE_SECOND
     ms = (source_ms % TIME_ONE_SECOND)
-    return "%02d:%02d:%02d:%03d" % (h, m, s, ms)
+    return "%02d:%02d:%02d.%03d" % (h, m, s, ms)
 
 
 def print_csv_line(start_ms: int, end_ms: int, is_estimated_start: bool, is_estimated_end: bool, sentence: str):
