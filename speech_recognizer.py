@@ -189,8 +189,12 @@ class GCPRecognizer:
                     word_i += 1
 
                 start_time: timedelta = start_word[1]
-                end_time: timedelta = words[word_i][2]
                 start_time_ms = start_time.days * TIME_ONE_DAY + start_time.seconds * TIME_ONE_SECOND + start_time.microseconds // TIME_ONE_MICROSECOND_DIVISOR
+
+                if word_i < len(words):
+                    end_time: timedelta = words[word_i][2]
+                else:
+                    end_time: timedelta = words[-1][2]
                 end_time_ms = end_time.days * TIME_ONE_DAY + end_time.seconds * TIME_ONE_SECOND + end_time.microseconds // TIME_ONE_MICROSECOND_DIVISOR
 
                 print_csv_line(start_time_ms, end_time_ms, True, True, sentence)
