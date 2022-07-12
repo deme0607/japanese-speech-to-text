@@ -8,57 +8,69 @@ Options:
     -h --help    show this
 """
 
+import sys
 import csv
+from typing import List, Optional
 from docopt import docopt
 
 
-if __name__ == "__main__":
-    arguments = docopt(__doc__)
-    csv_filename = arguments["<csv_filename>"]
+class CsvRow:
+    """
+    CSV header
+    start_ms, end_ms, start_tc, end_tc, is_estimated_start, is_estimated_end, original_text, translated_text
+    """
+    i_start_ms = 0
+    i_end_ms = 1
+    i_start_tc = 2
+    i_end_tc = 3
 
-    with open(csv_filename) as csvfile:
-        reader = csv.reader(csvfile)
+    def __init__(self, row_num: int, original: List[str], prev: Optional["CsvRow"]) -> None:
+        self.row_num = row_num
+        self.start_ms = int(original[self.i_start_ms]) if original[self.i_start_ms] else None
+        self.end_ms = int(original[self.i_end_ms]) if original[self.i_end_ms] else None
+        self.start_tc = original[self.i_start_tc]
+        self.end_tc = original[self.i_end_tc]
+        self.original = original
+        self.prev = prev
 
-        prev_row = None
-        count = 0
-        for i, row in enumerate(reader):
-            count += 1
-            if i == 0:
-                continue
+    def validate_timestamp(self) -> bool:
+        if self.start_ms and self.end_ms:
+            assert self.start_ms < self.end_ms, f"Invalid row {self.row_num}: start_ms: {self.start_ms}, end_ms: {self.end_ms}"
 
-            start_ms = int(row[0]) if row[0] else None
-            end_ms = int(row[1]) if row[1] else None
-            start_tc, end_tc = row[2:4]
+        if self.start_tc and self.end_tc:
+            assert self.start_tc < self.end_tc, f"Invalid row {self.row_num}: start_tc: {self.start_tc}, end_tc: {self.end_tc}"
 
-            if start_ms and end_ms and start_ms >= end_ms:
-                print(f"Invalid row {i + 1}: start_ms: {start_ms}, end_ms: {end_ms}")
-                prev_row = row
-                continue
+        if not self.prev:
+            return True
 
-            if start_tc and end_tc and start_tc >= end_tc:
-                print(f"Invalid row {i + 1}: start_tc: {start_tc}, end_tc: {end_tc}")
-                prev_row = row
-                continue
+        if self.start_ms and self.prev.end_ms:
+            assert self.prev.end_ms < self.start_ms, f"Invalid row {i + 1}: start_ms: {self.start_ms}, p_end_ms: {self.prev.end_ms}"
 
-            if not prev_row:
-                prev_row = row
-                continue
+        if self.start_tc and self.end_tc:
+            assert self.prev.end_tc < self.start_tc, f"Invalid row {i + 1}: start_tc: {self.start_tc}, p_end_tc: {self.prev.end_tc}"
 
-            p_start_ms = int(prev_row[0]) if prev_row[0] else None
-            p_end_ms = int(prev_row[1]) if prev_row[1] else None
-            p_start_tc, p_end_tc = prev_row[2:4]
+        return True
 
-            if start_ms and p_end_ms and start_ms <= p_end_ms:
-                print(f"Invalid row {i + 1}: start_ms: {start_ms}, p_end_ms: {p_end_ms}")
-                prev_row = row
-                continue
 
-            if start_tc and p_end_tc and start_tc <= p_end_tc:
-                print(f"Invalid row {i + 1}: start_tc: {start_tc}, p_end_tc: {p_end_tc}")
-                prev_row = row
-                continue
+if __name__ != "__main__":
+    sys.exit(__doc__)
 
-            prev_row = row
+arguments = docopt(__doc__)
+csv_filename = arguments["<csv_filename>"]
 
-    print(f"{count} rows validated.")
 
+with open(csv_filename) as csvfile:
+    reader = csv.reader(csvfile)
+
+    prev_r = None
+    count = 0
+    for i, row in enumerate(reader):
+        count += 1
+        if i == 0:
+            continue
+
+        r = CsvRow(i + 1, row, prev_r)
+        r.validate_timestamp()
+        prev_r = r
+
+print(f"{count} rows validated.")
