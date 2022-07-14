@@ -139,7 +139,7 @@ class AzureRecognizer:
                 if j == len(sentences) - 1:
                     sentence_duration_esimation = segment_end - sentence_start
 
-                print_csv_line(sentence_start, sentence_start + sentence_duration_esimation, j == 0, j == len(sentences) - 1, sentence_display_text)
+                print_csv_line(sentence_start, sentence_start + sentence_duration_esimation, j != 0, j != len(sentences) - 1, sentence_display_text)
 
                 sentence_start += sentence_duration_esimation + self.AZURE_SEGMENT_BREAK_MS
 
